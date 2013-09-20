@@ -199,19 +199,23 @@ instance parse2 (,)		where parse2 parsex parsey l	= fmap toTup $ parse1 (parse2 
 instance map2 (,)		where map2 f g x				= toTup $ map1 (map2 f g) $ fromTup x
 
 Start
- =	[ and [ test i \\ i <- [-25 .. 25]]			// Integers
+ =	// parsing & equality
+ 	[ and [ test i \\ i <- [-25 .. 25]]			// Integers
 	, and [ test c \\ c <- [Red,Yellow,Blue]]	// Colors
 	, and [ test l \\ l <- someLists 4]			// Lists of Integers
 	, and [ test t \\ t <- someTrees]			// Trees of Colors
 	, and [ test (a,b) \\ a <- someTrees, b <- someLists 3]	// Tuples of Trees and Lists
-	, map1 ((+) 1) [0 .. 5] == [1 .. 6]
-	, eq0 (map1 (const True) [0 .. 20]) (take 21 (repeat True))
-	, eq0 (map1 square (Bin 37 Tip $ Bin 4 Tip Tip)) $ Bin 1369 Tip $ Bin 16 Tip Tip
+	// maps
+	, map1 ((+) 1) [0 .. 5] == [1 .. 6]			// basic test
+	, eq0 (map1 (const True) [0 .. 20]) (take 21 (repeat True)) // map to different type
+	, eq0 (map1 square (Bin 37 Tip $ Bin 4 Tip Tip)) $ Bin 1369 Tip $ Bin 16 Tip Tip	// map over Tree
+	, map1 (\n.(n, fac n)) [1..5] == curry zip [1..5] [1, 2, 6, 24, 120]
 	]
+
+// Start = map2 (map1 fac) (map1 fac) ([1..10], Bin 2 Tip (Bin 4 Tip Tip))
 
 ($) infixr 0
 ($) f x = f x
-square x = x * x
 
 fmap f Nothing = Nothing
 fmap f (Just (x, y)) = Just (f x, y)
@@ -232,3 +236,6 @@ perms [] = [[]]
 perms [x:xs] = flatten (map (\p -> [insertAt n x p \\ n <- [0..length p]]) (perms xs))
 someLists upperbound = flatten o map perms $ [[1..n] \\ n <- [1..upperbound]]
 someTrees = [Tip, Bin Yellow (Bin Blue Tip Tip) (Bin Red Tip Tip), Bin Yellow (Bin Blue (Bin Yellow Tip Tip) Tip) (Bin Red (Bin Yellow Tip Tip) (Bin Red Tip Tip))]
+
+square x = x * x
+fac n = prod [1..n] // fac implemented with prod

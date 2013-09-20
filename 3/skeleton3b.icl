@@ -56,6 +56,7 @@ test x
 ($) infixr 0
 ($) f x = f x
 
+// Make an exception for (,) to have nicer output
 show_{|UNIT|} _ c = c
 show_{|PAIR|} showx showy (PAIR x y) c = showx x $ showy y c
 show_{|EITHER|} showx _ (LEFT x) c = showx x c
@@ -64,8 +65,9 @@ show_{|CONS of {gcd_name, gcd_arity}|} showx (CONS x) c
 | gcd_arity == 0	= [gcd_name:showx x c]
 | otherwise			= ["(":gcd_name:showx x [")":c]]
 show_{|OBJECT|} showx (OBJECT x) c = showx x c
+show_{|(,)|} showx showy (x, y) c = ["(":showx x [",":showy y [")":c]]]
 
-derive show_ (,), [], T, Color, Tree
+derive show_ [], T, Color, Tree
 
 fmap f Nothing = Nothing
 fmap f (Just (x, y)) = Just (f x, y)
@@ -94,8 +96,9 @@ parse{|CONS of {gcd_name, gcd_arity}|} parsex r
 | gcd_arity == 0 = (strip gcd_name >>> parsex >>= \z -> unit (CONS z)) r
 | gcd_arity  > 0 = (strip "(" >>> strip gcd_name >>> parsex >>= \z -> strip ")" >>> unit (CONS z)) r
 parse{|OBJECT|} parsex r = fmap OBJECT $ parsex r
+parse{|(,)|} parsex parsey r = (strip "(" >>> parsex >>= \x -> strip "," >>> parsey >>= \y -> strip ")" >>> unit (x,y)) r
 
-derive parse (,), [], T, Color, Tree
+derive parse [], T, Color, Tree
 derive gEq T, Color, Tree
 
 //------------------ tests --------------
@@ -105,4 +108,9 @@ perms [x:xs] = flatten (map (\p -> [insertAt n x p \\ n <- [0..length p]]) (perm
 someLists upperbound = flatten o map perms $ [[1..n] \\ n <- [1..upperbound]]
 someTrees = [Tip, Bin Yellow (Bin Blue Tip Tip) (Bin Red Tip Tip), Bin Yellow (Bin Blue (Bin Yellow Tip Tip) Tip) (Bin Red (Bin Yellow Tip Tip) (Bin Red Tip Tip))]
 
-Start = and $ [test b \\ b <- someLists 5] ++ [test b \\ b <- someTrees] ++ [test C]
+Start = ( and [test b \\ b <- someLists 5]
+        , and [test b \\ b <- someTrees]
+        , test C
+        , test (1,5)
+        , show $ curry zip someTrees (someLists 4)
+        )
