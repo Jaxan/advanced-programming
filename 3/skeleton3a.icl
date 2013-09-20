@@ -18,12 +18,9 @@ import StdEnv, StdMaybe
 
 class show_0 a where show_0 :: a [String] -> [String]
 
-instance show_0 Int  where show_0 i    c = [IntTag :toString i:c]
-instance show_0 Bool where show_0 b    c = [BoolTag:toString b:c]
+instance show_0 Int  where show_0 i    c = [toString i:c]
+instance show_0 Bool where show_0 b    c = [toString b:c]
 instance show_0 UNIT where show_0 unit c = c
-
-IntTag	:== "Int"
-BoolTag	:== "Bool"
 
 show :: a -> [String] | show_0 a
 show a = show_0 a []
@@ -36,11 +33,11 @@ class parse0 a :: [String] -> Result a
 
 instance parse0 Int
 where
-	parse0 [IntTag,i:r] = Just (toInt i, r)
+	parse0 [i:r] = Just (toInt i, r)
 	parse0 r = Nothing
 instance parse0 Bool
 where
-	parse0 [BoolTag,b:r] = Just (b=="True", r)
+	parse0 [b:r] = Just (b=="True", r)
 	parse0 r = Nothing
 instance parse0 UNIT
 where
@@ -164,6 +161,7 @@ instance show_1 CONS	where show_1 showx (CONS str x) c		= [str:showx x c]
 class parse1 t :: ([String] -> Result a) [String] -> Result (t a)
 class parse2 t :: ([String] -> Result a) ([String] -> Result b) [String] -> Result (t a b)
 
+// I decided to keep the tags for EITHER, because we don't know what to match in CONS, so CONS will almost never fail. As a result LEFT will almost always win. We could also pass more information around during parsing, but than we would need to change the signature of parse. Besides I believe that this is more time-efficient. And a full tagless implementation can be found in skeleton3b.icl, as we do have the name of the constructor to match with.
 instance parse2 PAIR	where parse2 parsex parsey r	= (parsex >>= \x -> parsey >>= \y -> unit (PAIR x y)) r
 instance parse2 EITHER	where parse2 parsex parsey ["L":r]	= fmap LEFT $ parsex r
                               parse2 parsex parsey ["R":r]	= fmap RIGHT $ parsey r
