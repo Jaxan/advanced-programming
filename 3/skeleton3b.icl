@@ -96,12 +96,13 @@ parse{|CONS of {gcd_name, gcd_arity}|} parsex r
 parse{|OBJECT|} parsex r = fmap OBJECT $ parsex r
 
 derive parse (,), [], T, Color, Tree
+derive gEq T, Color, Tree
 
 //------------------ tests --------------
 
 perms [] = [[]]
 perms [x:xs] = flatten (map (\p -> [insertAt n x p \\ n <- [0..length p]]) (perms xs))
 someLists upperbound = flatten o map perms $ [[1..n] \\ n <- [1..upperbound]]
+someTrees = [Tip, Bin Yellow (Bin Blue Tip Tip) (Bin Red Tip Tip), Bin Yellow (Bin Blue (Bin Yellow Tip Tip) Tip) (Bin Red (Bin Yellow Tip Tip) (Bin Red Tip Tip))]
 
-Start = and [test b \\ b <- someLists 5]
-// Start = parse{|*|} (show (Bin 5 (Bin 42 Tip Tip) (Bin 37 Tip Tip)))
+Start = and $ [test b \\ b <- someLists 5] ++ [test b \\ b <- someTrees] ++ [test C]

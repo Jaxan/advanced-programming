@@ -20,12 +20,10 @@ class show_0 a where show_0 :: a [String] -> [String]
 
 instance show_0 Int  where show_0 i    c = [IntTag :toString i:c]
 instance show_0 Bool where show_0 b    c = [BoolTag:toString b:c]
-instance show_0 UNIT where show_0 unit c = [UNITTag:c]
+instance show_0 UNIT where show_0 unit c = c
 
 IntTag	:== "Int"
 BoolTag	:== "Bool"
-UNITTag	:== "UNIT"
-PAIRTag	:== "PAIR"
 
 show :: a -> [String] | show_0 a
 show a = show_0 a []
@@ -46,8 +44,7 @@ where
 	parse0 r = Nothing
 instance parse0 UNIT
 where
-	parse0 [UNITTag:r] = Just (UNIT, r)
-	parse0 r = Nothing
+	parse0 r = Just (UNIT, r)
 
 /**************** Example Types and conversions *************************/
 
@@ -154,23 +151,60 @@ instance map2 EITHER		where map2 f g (LEFT  x)  = LEFT  (f x)
 
 /**************** please add all new code below this line *************************/
 
-instance eq0 Color		where eq0  c1 c2 = False		// TO BE IMPROVED
-instance ==  Color		where (==) c1 c2 = eq0 c1 c2	// just to use the well-known notation...
-instance show_0 Color	where show_0 _ 	   c = c		// TO BE IMPROVED
-instance parse0 Color	where parse0 _       = Nothing	// TO BE IMPROVED
+class show_1 t :: (a [String] -> [String]) (t a) [String] -> [String]
+class show_2 t :: (a [String] -> [String]) (b [String] -> [String]) (t a b) [String] -> [String]
 
-instance map1 []	where map1 f l = map f l			// TO BE IMPROVED, use generic version
+instance show_2 PAIR	where show_2 showx showy (PAIR x y) c	= showx x $ showy y c
+instance show_2 EITHER	where show_2 showx _ (LEFT x) c			= ["L":showx x c]
+                              show_2 _ showy (RIGHT y) c		= ["R":showy y c]
+instance show_1 CONS	where show_1 showx (CONS str x) c		= [str:showx x c]
+
+class parse1 t :: ([String] -> Result a) [String] -> Result (t a)
+class parse2 t :: ([String] -> Result a) ([String] -> Result b) [String] -> Result (t a b)
+
+instance parse2 PAIR	where parse2 parsex parsey r	= (parsex >>= \x -> parsey >>= \y -> unit (PAIR x y)) r
+instance parse2 EITHER	where parse2 parsex parsey ["L":r]	= fmap LEFT $ parsex r
+                              parse2 parsex parsey ["R":r]	= fmap RIGHT $ parsey r
+                              parse2 parsex parsey _	= Nothing
+instance parse1 CONS	where parse1 parsex r			= (read >>= \str -> parsex >>= \z -> unit (CONS str z)) r
+
+instance eq0 Color		where eq0  c1 c2 = eq2 (eq2 (eq1 eq0) (eq1 eq0)) (eq1 eq0) (fromColor c1) (fromColor c2)
+instance ==  Color		where (==) c1 c2 = eq0 c1 c2
+instance show_0 Color	where show_0 x c = show_2 (show_2 (show_1 show_0) (show_1 show_0)) (show_1 show_0) (fromColor x) c
+instance parse0 Color	where parse0 l   = fmap toColor $ parse2 (parse2 (parse1 parse0) (parse1 parse0)) (parse1 parse0) l
+
+instance map1 []	where map1 f l = toList $ map2 (map1 map0) (map1 (map2 f (map1 f))) $ fromList l
 
 // some initial tests, please extend
-Start
- =	[ and [ test i \\ i <- [-25 .. 25]]
-	, and [ c == toColor (fromColor c) \\ c <- [Red, Yellow, Blue]]
-	, and [ test c \\ c <- [Red,Yellow,Blue]]
-//	, test [1 .. 3]
-//	, test [(a,b) \\ a <- [1 .. 2], b <- [5 .. 7]]
-//	etc.
-	// maps
-	, map1 ((+) 1) [0 .. 5] == [1 .. 6]
-	]
+// Start
+//  =	[ and [ test i \\ i <- [-25 .. 25]]
+// 	, and [ c == toColor (fromColor c) \\ c <- [Red, Yellow, Blue]]
+// 	, and [ test c \\ c <- [Red,Yellow,Blue]]
+// 	, test [1 .. 3]
+// 	, test [(a,b) \\ a <- [1 .. 2], b <- [5 .. 7]]
+// //	etc.
+// 	// maps
+// 	, map1 ((+) 1) [0 .. 5] == [1 .. 6]
+// 	]
+
+Start :: Result Color
+Start = parse0 $ show Yellow
 
 aTree = Bin 2 Tip (Bin 4 Tip Tip)
+
+($) infixr 0
+($) f x = f x
+
+fmap f Nothing = Nothing
+fmap f (Just (x, y)) = Just (f x, y)
+// Quick and dirty monad for parsing, makes CONS easier
+(>>=) infixr 0
+(>>=) p f = \xs -> case p xs of
+	Just (x, xs) = f x xs
+	Nothing = Nothing
+(>>>) infixr 0
+(>>>) x f = x >>= \_ -> f
+unit a = \xs -> Just (a, xs)
+
+read [] = Nothing
+read [y:xs] = Just (y, xs)
