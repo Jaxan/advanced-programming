@@ -120,6 +120,7 @@ class eq1 t :: (a a -> Bool)               (t a)   (t a)   -> Bool
 class eq2 t :: (a a -> Bool) (b b -> Bool) (t a b) (t a b) -> Bool
 
 instance eq0 UNIT			where eq0 _ _                       = True
+instance eq0 Bool			where eq0 n m                       = n == m
 instance eq0 Int			where eq0 n m                       = n == m
 
 instance eq1 CONS			where eq1 f   (CONS s x) (CONS t y) = s == t && f x y
@@ -129,7 +130,6 @@ instance eq2 EITHER			where eq2 f g (LEFT  x)  (LEFT  y)  = f x y
 							      eq2 f g (RIGHT x)  (RIGHT y)  = g x y
 							      eq2 f g _          _          = False
 
-instance eq0 [a] | eq0 a	where eq0   l m = eq1 eq0 l m
 instance eq1 []				where eq1 f l m = eq2 (eq1 eq0) (eq1 (eq2 f (eq1 f))) (fromList l) (fromList m)
 
 /**************** map *************************/
@@ -151,6 +151,7 @@ instance map2 EITHER		where map2 f g (LEFT  x)  = LEFT  (f x)
 
 /**************** please add all new code below this line *************************/
 
+// generic show, show_0 is at the top
 class show_1 t :: (a [String] -> [String]) (t a) [String] -> [String]
 class show_2 t :: (a [String] -> [String]) (b [String] -> [String]) (t a b) [String] -> [String]
 
@@ -159,6 +160,7 @@ instance show_2 EITHER	where show_2 showx _ (LEFT x) c			= ["L":showx x c]
                               show_2 _ showy (RIGHT y) c		= ["R":showy y c]
 instance show_1 CONS	where show_1 showx (CONS str x) c		= [str:showx x c]
 
+// generic parse, parse0 is at the top
 class parse1 t :: ([String] -> Result a) [String] -> Result (t a)
 class parse2 t :: ([String] -> Result a) ([String] -> Result b) [String] -> Result (t a b)
 
@@ -168,32 +170,48 @@ instance parse2 EITHER	where parse2 parsex parsey ["L":r]	= fmap LEFT $ parsex r
                               parse2 parsex parsey _	= Nothing
 instance parse1 CONS	where parse1 parsex r			= (read >>= \str -> parsex >>= \z -> unit (CONS str z)) r
 
+// If we have eq1, show_1, ... we also get eq0, show_0,...
+instance eq0 (t a)		| eq0 a & eq1 t			where eq0 x y		= eq1 eq0 x y
+instance show_0 (t a)	| show_0 a & show_1 t	where show_0 x c	= show_1 show_0 x c
+instance parse0 (t a)	| parse0 a & parse1 t	where parse0 r		= parse1 parse0 r
+instance eq1 (t a)		| eq0 a & eq2 t			where eq1 eqy x y		= eq2 eq0 eqy x y
+instance show_1 (t a)	| show_0 a & show_2 t	where show_1 show_y x c	= show_2 show_0 show_y x c
+instance parse1 (t a)	| parse0 a & parse2 t	where parse1 parsey r	= parse2 parse0 parsey r
+
+// specific instances
 instance eq0 Color		where eq0  c1 c2 = eq2 (eq2 (eq1 eq0) (eq1 eq0)) (eq1 eq0) (fromColor c1) (fromColor c2)
-instance ==  Color		where (==) c1 c2 = eq0 c1 c2
 instance show_0 Color	where show_0 x c = show_2 (show_2 (show_1 show_0) (show_1 show_0)) (show_1 show_0) (fromColor x) c
 instance parse0 Color	where parse0 l   = fmap toColor $ parse2 (parse2 (parse1 parse0) (parse1 parse0)) (parse1 parse0) l
 
-instance map1 []	where map1 f l = toList $ map2 (map1 map0) (map1 (map2 f (map1 f))) $ fromList l
+// :: TupG a b	:== CONS (PAIR a b)
+instance show_1 []		where show_1 show_x l c	= show_2 (show_1 show_0) (show_1 (show_2 show_x (show_1 show_x))) (fromList l) c
+instance parse1 []		where parse1 parsex r	= fmap toList $ parse2 (parse1 parse0) (parse1 (parse2 parsex (parse1 parsex))) r
+instance map1 []		where map1 f l			= toList $ map2 (map1 map0) (map1 (map2 f (map1 f))) $ fromList l
 
-// some initial tests, please extend
-// Start
-//  =	[ and [ test i \\ i <- [-25 .. 25]]
-// 	, and [ c == toColor (fromColor c) \\ c <- [Red, Yellow, Blue]]
-// 	, and [ test c \\ c <- [Red,Yellow,Blue]]
-// 	, test [1 .. 3]
-// 	, test [(a,b) \\ a <- [1 .. 2], b <- [5 .. 7]]
-// //	etc.
-// 	// maps
-// 	, map1 ((+) 1) [0 .. 5] == [1 .. 6]
-// 	]
+instance eq1 Tree		where eq1 eqx t1 t2		= eq2 (eq1 eq0) (eq1 (eq2 eqx (eq2 (eq1 eqx) (eq1 eqx)))) (fromTree t1) (fromTree t2)
+instance show_1 Tree	where show_1 show_x l c	= show_2 (show_1 show_0) (show_1 (show_2 show_x (show_2 (show_1 show_x) (show_1 show_x)))) (fromTree l) c
+instance parse1 Tree	where parse1 parsex r	= fmap toTree $ parse2 (parse1 parse0) (parse1 (parse2 parsex (parse2 (parse1 parsex) (parse1 parsex)))) r
+instance map1 Tree		where map1 f l			= toTree $ map2 (map1 map0) (map1 (map2 f (map2 (map1 f) (map1 f)))) $ fromTree l
 
-Start :: Result Color
-Start = parse0 $ show Yellow
+instance eq2 (,)		where eq2 eqx eqy x y			= eq1 (eq2 eqx eqy) (fromTup x) (fromTup y)
+instance show_2 (,)		where show_2 show_x show_y x c	= show_1 (show_2 show_x show_y) (fromTup x) c
+instance parse2 (,)		where parse2 parsex parsey l	= fmap toTup $ parse1 (parse2 parsex parsey) l
+instance map2 (,)		where map2 f g x				= toTup $ map1 (map2 f g) $ fromTup x
 
-aTree = Bin 2 Tip (Bin 4 Tip Tip)
+Start
+ =	[ and [ test i \\ i <- [-25 .. 25]]			// Integers
+	, and [ test c \\ c <- [Red,Yellow,Blue]]	// Colors
+	, and [ test l \\ l <- someLists 4]			// Lists of Integers
+	, and [ test t \\ t <- someTrees]			// Trees of Colors
+	, and [ test (a,b) \\ a <- someTrees, b <- someLists 3]	// Tuples of Trees and Lists
+	, map1 ((+) 1) [0 .. 5] == [1 .. 6]
+	, eq0 (map1 (const True) [0 .. 20]) (take 21 (repeat True))
+	, eq0 (map1 square (Bin 37 Tip $ Bin 4 Tip Tip)) $ Bin 1369 Tip $ Bin 16 Tip Tip
+	]
 
 ($) infixr 0
 ($) f x = f x
+square x = x * x
 
 fmap f Nothing = Nothing
 fmap f (Just (x, y)) = Just (f x, y)
@@ -208,3 +226,9 @@ unit a = \xs -> Just (a, xs)
 
 read [] = Nothing
 read [y:xs] = Just (y, xs)
+
+// testing
+perms [] = [[]]
+perms [x:xs] = flatten (map (\p -> [insertAt n x p \\ n <- [0..length p]]) (perms xs))
+someLists upperbound = flatten o map perms $ [[1..n] \\ n <- [1..upperbound]]
+someTrees = [Tip, Bin Yellow (Bin Blue Tip Tip) (Bin Red Tip Tip), Bin Yellow (Bin Blue (Bin Yellow Tip Tip) Tip) (Bin Red (Bin Yellow Tip Tip) (Bin Red Tip Tip))]
