@@ -1,0 +1,13 @@
+# Clean and iTask
+*Clean System Files
+*sapl
+*-data
+*.prp
+iTasks-SDK
+
+# Other
+.DS_Store
+clean.sublime-workspace
+*.pdf
+*.exe
+

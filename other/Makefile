@@ -1,5 +1,9 @@
 
 CLM = /Users/joshua/Documents/Code/clean2/bin/clm
+FLAGS = -ns -lt -fusion
 
-main : FunDeps.icl
-	$(CLM) -ns -lt -fusion FunDeps -o FunDeps
+FunDeps : FunDeps.icl
+	$(CLM) $(FLAGS) FunDeps -o FunDeps
+
+Fib : Fib.icl
+	$(CLM) $(FLAGS) Fib -o Fib
