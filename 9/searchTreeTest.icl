@@ -5,13 +5,52 @@ module searchTreeTest
 
 import StdEnv, StdIO, searchTree, gast
 
-// I just tested searchTree with some basic types. It is very easy to add tests
-// for other types, you only have to extend the following two functions, and
-// simply provide a value of your favorite type (the actual value is not used).
-// We don't have to thest SearchTree for non total orders, as it is a pre-cond.
+/*
+1. Of course we should test the SearchTree on Ints, as this is really the most
+basic total order. I also added Strings and lists as these are commonly used.
+So this motivates the tests. However, it is very easy to add tests for other
+types, you only have to extend the following two functions by simply providing
+a value of your favorite type (the actual value is not used). We don't have to
+test SearchTree for non total orders, as this is a pre-condition.
+
+2/3. See code below.
+
+4.
+The first three columns are logical properties (L), the second three model
+based checking (M). A dot means passed, an X means failure. I, S and LR stand
+for Int, String and [Real].
+	LI	LS	LLR	MI	MS	MLR
+a	.	.	.	.	.	.
+b	X	X	X	X	X	X
+c	X	X	X	X	X	X
+d	X	X	X	X	X	X
+e	X	X	X	X	X	X
+f	X	X	X	X	X	X
+g	X	X	X	X	X	X
+h	X	X	X	X	X	X
+i	X	X	X	X	X	X
+j	.	.	.	X	X	X
+k	.	.	.	X	X	X
+
+5. This part I only did for Int (as the traces in the case of String are
+generally longer and less readable). The longest traces took 664 (variant j)
+and 386 (variant k) transitions. For the k variant I found the following trace
+which shows incorrectness in 5 transiftions:
+[Insert 0, Insert 1, Insert -1, Delete 0, IsMember -1]
+
+For the k variant I found one in 6 transitions:
+[Insert 1, Insert 0, Insert 2, Delete 1, Delete 2, IsMember 2]
+
+6. Incidentally the variants j and k are also the ones for which the logical
+propositions were not sufficient. For the j variant we indeed miss one property
+(which is now clearly visible with the 5-transition failure): deleting should
+not affect other members.
+More mathematically: elem x t /\ x <> y ==> elem x (del y t)
+
+*/
 
 // *** Extend Here ***
-logicTests = 
+logicTests =
 	[ logicTestsBase "Int" 1
 	, logicTestsBase "String" "bla"
 	, logicTestsBase "[Real]" [1.0] ]
@@ -20,6 +59,10 @@ modelTests =
 	[ modelTestBase "Int" 1
 	, modelTestBase "String" "bla"
 	, modelTestBase "[Real]" [1.0] ]
+
+fixedInputs = FixedInputs
+	[ [Insert 0, Insert 1, Insert -1, Delete 0, IsMember -1]
+	, [Insert 1, Insert 0, Insert 2, Delete 1, Delete 2, IsMember 2] ]
 
 
 // *** Logical Tests ***
@@ -50,6 +93,8 @@ derive gEq     Input, Output, State
 derive genShow Input, Output, State
 derive ggen    Input, Output, State
 
+// Specification is in terms of a list. Note that duplicates are allowed, but
+// Delete should remove all of them, hence the filter (instead of removeMember)
 searchTreeModel :: (State a) (Input a) -> [Trans Output (State a)] | Eq a
 searchTreeModel s (Insert x)   = pt [] { s & elements = [x:s.elements] }
 searchTreeModel s (Delete x)   = pt [] { s & elements = filter ((<>) x) s.elements }
@@ -67,8 +112,8 @@ modelTestBase n type world
 # console = console <<< "SearchTree " <<< n <<< " "
 # (_, world) = fclose console world
 # emptyState = { elements = asType [type] [] }
-# emptyTree  = List2ST $ emptyState.elements
-# test = testConfSM [] searchTreeModel emptyState searchTreeImpl emptyTree (const emptyTree) world
+# test = testConfSM [ErrorFile $ "test" +++ n +++ ".txt" /*, fixedInputs */]
+         searchTreeModel emptyState searchTreeImpl newST (const newST) world
 = snd test
 
 
