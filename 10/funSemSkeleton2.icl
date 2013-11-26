@@ -4,6 +4,7 @@ import StdEnv, gast
 
 // Joshua Moerman
 // 3009408
+// NOTE: I had to increase the Heap Size
 
 /********************** data types **********************/
 
@@ -100,17 +101,63 @@ Ds defs
 
 /********************** Properties *********************/
 
+// prefix notation == infix notation
 p1 i j = (\p. prfx i j p === infx i j p) For [+. , *. , -. , <.] where
 	prfx i j p = E (Ap (Prim p) [Int i, Int j]) newEnv newEnv
 	infx i j p = E (Infix (Int i) p (Int j)) newEnv newEnv
 
+// substitution: if x1 == x2, then f(x1) == f(x2) for every x1, x2 and f
+p2 x1 x2 fun = E x1 vars funs === E x2 vars funs
+           ==> E (f x1) vars funs === E (f x2) vars funs
+	where f e = Ap (Fun (FI "fun")) [Int 0, e]
+	      funs = ("fun" |-> Def "fun" [VI "n", VI "x"] fun) newEnv
+	      vars = ("n" |-> Int 0) $ ("x" |-> Int 0) newEnv
+
+// ``every`` program (fun1, fun2, fun3) reduces to normal form for every input x
+p3 fun1 fun2 fun3 x = isInt $ Ds defs
+	where isInt (Int n) = True
+	      isInt _       = False
+	      defs = [ Def "fun1" [VI "n", VI "x"] $ unDef2 fun1 
+	             , Def "fun2" [VI "n", VI "x"] $ unDef2 fun2
+	             , Def "fun3" [VI "n", VI "x"] $ unDef2 fun3
+	             , Def "Start" [] (Ap (Fun (FI "fun1")) [Int 1337, Int x])]
+
 /********************** instances of generic functions for gast **********************/
 
-derive gEq		Expr, Prim, Def, Var, Fun
-derive genShow	Expr, Prim, Def, Var, Fun
-derive ggen		Expr, Prim, Def, Var, Fun	// likely to be improved for real tests
+// simple arithmetic expressions with two variables
+:: Arith = Const Int | VN | VX | Plus Arith Arith | Sub Arith Arith | Mult Arith Arith | IfLess Arith Arith Arith Arith
+translate :: Arith -> Expr
+translate (Const n) = Int n
+translate VX = Var (VI "x")
+translate VN = Var (VI "n")
+translate (Plus x y) = Infix (translate x) +. (translate y)
+translate (Sub x y)  = Infix (translate x) -. (translate y)
+translate (Mult x y) = Infix (translate x) *. (translate y)
+translate (IfLess a b c d) = Ap (Prim IF) [Infix (translate a) <. (translate b), translate c, translate d]
 
+derive ggen Arith, Prim
+ggen{|Expr|} n rnd = map translate $ ggen{|*|} n rnd
+
+// structural recursive functions (can be mutual recursive)
+// I fixed 3 functions
+:: Funct = Arith Arith | App Fun Funct
+:: Def2 = Def2 Expr; unDef2 (Def2 e) = e
+translate2 :: Funct -> Expr
+translate2 (Arith a) = translate a
+translate2 (App fun a) = Ap (Prim IF)                                  // f(n, x) = 
+	[Infix (Var (VI "n")) <. (Int 1),                                  // if n <= 0
+		Int 1,                                                         //   then return 1
+		Ap (Fun fun) [Infix (Var (VI "n")) -. (Int 1), translate2 a]]  //   else return f(n-1, a)
+
+derive ggen Funct
+ggen{|Fun|} n rnd = map FI $ randomize funs rnd 3 (const funs) where
+	funs = ["fun1", "fun2", "fun3"]
+ggen{|Def2|} n rnd = map (Def2 o translate2) $ ggen{|*|} n rnd
+
+derive gEq		Expr, Prim, Def, Var, Fun, Arith, Funct, Def2
+derive genShow	Expr, Prim, Def, Var, Fun, Arith, Funct, Def2
 derive bimap []
+
 /********************** some unit tests using gast **********************/
 
 Start
@@ -141,6 +188,8 @@ Start
 	, Ds [start1 4:defs] === Int 24
 	]
 	, Test [] p1
+	, Test [] p2
+	, Test [] p3
 	)
 
 start0   = Def "Start" [] (Int 42)
