@@ -91,21 +91,21 @@ class Stmt a b c where
 	(:=.) infix 1 :: Var a -> (a b -> c)
 	(:.) infixl 0 :: (a b -> c) (a b -> c) -> (a b -> c)
 	skip   :: (a b -> c)
-	If     :: (a->b) (a b -> c) -> (a b -> c)
+	If     :: (a->b) (a b -> c) (a b -> c) -> (a b -> c)
 	While  :: (a->b) (a b -> c) -> (a b -> c)
 
 instance Stmt [String] [String] [String] where
 	(:=.) v a  = \c1 c2. [v:" := ":a]
 	(:.) s1 s2 = \c1 c2. s1 c1 c2 ++ [";\n":s2 c1 c2]
 	skip       = \c1 c2. ["skip"]
-	If b st    = \c1 c2. ["if ":b c2] ++ ["(\n":st c1 c2] ++ ["\n)"]
+	If b s1 s2 = \c1 c2. ["if ":b c2] ++ ["(\n":s1 c1 c2] ++ ["\n) else (\n":s2 c1 c2] ++ ["\n)"]
 	While b st = \c1 c2. ["while ": b c2] ++ ["(\n":st c1 c2] ++ ["\n)"]
 
 instance Stmt (State->Num) (State->Bool) (State->State) where
 	(:=.) v a  = \c1 c2 s. bind v (a s) s
 	(:.) s1 s2 = \c1 c2 s. s2 c1 c2 (s1 c1 c2 s)
 	skip       = \c1 c2 s. s
-	If b st    = \c1 c2 s. if (b c1 s) (st c1 c2 s) s
+	If b s1 s2 = \c1 c2 s. if (b c1 s) (s1 c1 c2 s) (s2 c1 c2 s)
 	While b st = \c1 c2 s. if (b c1 s) (While b st c1 c2 (st c1 c2 s)) s
 
 
