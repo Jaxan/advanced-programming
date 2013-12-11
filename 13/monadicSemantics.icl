@@ -96,5 +96,16 @@ Start = fst (program start) where
 	start "b" = 12
 	start _ = 0
 
+/*
+	5) The iTask semantics where given with a shallow embedding. This has the
+	advantage that we can use more features of the type system. For example, it
+	is very natural to express the bind operator in it, whereas this would be
+	hard to do as a constructor in a data structure (deep embedding).
+	The disadvantage of a shallow embedding is that it is hard to do other
+	manipulations with the expressions. For example, in this file it would be
+	trivial to give a list of all variables in a expression, to add this view
+	given a shallow embedding is hard.
+*/
+
 (o2) infixr 9
 (o2) f g x :== f o (g x)
