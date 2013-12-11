@@ -5,6 +5,10 @@ module monadicSemantics
 
 import StdEnv, StdGeneric, GenMap, GenHylo
 
+// For fun I implemented the recursive datastructre Exp and Stm as fixpoints
+// This helps us define recursive functions on them (only a little bit though)
+// However deriving gMap for Fix did not works out of the box
+// I had to remove some uniqueness typing in GenMap and GenHylo
 :: Op      = Plus | Minus | Times | Rem | Equal | LessThan
 :: Var     :== String
 
@@ -16,13 +20,10 @@ import StdEnv, StdGeneric, GenMap, GenHylo
 
 derive gMap ExpP, StmP, Fix
 
-// Environment of integers
+// Environment. Semantics is basically Env -> Env
 :: Env :== Var -> Int
-empty = \v . 0
-
-// Semantics type class
 :: Sem :== Env -> (Int, Env)
-class sem a :: a -> Sem
+empty = \v . 0
 
 // return
 rtn :: Int -> Sem
@@ -42,7 +43,9 @@ read v = \e. (e v, e)
 write :: Var Int -> Sem
 write v i = \e. (i, \w. if (w==v) i (e w))
 
-// semantics of operators
+// semantics
+class sem a :: a -> Sem
+
 operator :: Op -> Int -> Int -> Int
 operator Plus     = (+)
 operator Minus    = (-)
@@ -65,7 +68,7 @@ instance sem Stm where
 		phi (Assign v e)     = sem e >>= write v
 		phi (If e s1 s2)     = sem e >>= \b . if (b<>0) s1 s2
 		phi stm=:(While e s) = sem e >>= \b . if (b<>0) (s >>| phi stm) (phi Cont)
-		phi (Seq s1 s2)      = s1 >>| s2  // Here the cata finally pays off :D
+		phi (Seq s1 s2)      = s1 >>| s2    // Here the cata *finally* pays off :D
 		phi Cont             = rtn 0
 
 // convenience functions
@@ -87,12 +90,11 @@ pEuclides =
 		)
 	)
 
-Start
-# p = pEuclides
-# args = write "a" 9 >>| write "b" 12
-# (_, s) = args empty
-# (_, s) = sem p s
-= s "a"
+Start = fst (program start) where
+	program = sem pEuclides >>| read "a"
+	start "a" = 9
+	start "b" = 12
+	start _ = 0
 
 (o2) infixr 9
 (o2) f g x :== f o (g x)
